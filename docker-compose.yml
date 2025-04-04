@@ -16,6 +16,7 @@ services:
       - ./src:/src
     ports:
       - 5000:5000
-#networks:
-#  traefik:
-#    external: true
+#if no traefik , shouldn't to use it
+networks:
+ traefik:
+   external: true
