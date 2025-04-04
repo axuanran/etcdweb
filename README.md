@@ -38,11 +38,6 @@ docker compose up -d
             external: true
 ```
 
-#networks:
-#  traefik:
-#    external: true
-```
-
 ## License
 
 MIT License
