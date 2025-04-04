@@ -43,6 +43,6 @@ warn: there is no auth!!!
 
 MIT License
 Copyright (c) 2023
-Written by [Yuji Nakamura](https://github.com/axuanran)
+Written by [axuanran](https://github.com/axuanran)
 [MIT License](https://github.com/axuanran/etcdweb/blob/main/LICENSE)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/axuanran/etcdweb/blob/main/LICENSE)
