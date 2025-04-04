@@ -1,0 +1,21 @@
+version: "3"
+services:
+  etcdweb-api:
+    build:
+      dockerfile: Dockerfile
+      context: .
+    restart: always
+    # labels:
+    #   - traefik.enable=false
+    #   - traefik.http.routers.etcdweb-api.rule=Host(`${HTTP_DOMAINS}`)
+    networks:
+      - traefik
+    expose:
+      - 5000
+    volumes:
+      - ./src:/src
+    ports:
+      - 5000:5000
+#networks:
+#  traefik:
+#    external: true
