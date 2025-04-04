@@ -37,6 +37,7 @@ docker compose up -d
         traefik:
             external: true
 ```
+warn: there is no auth!!!
 
 ## License
 
