@@ -2,6 +2,11 @@
 
 # etcdweb - simple to put KV data to etcd
 
+
+2025.05.01 新增traefik docker\yaml到所用的路径方式转换工具
+![alt text](image02.png)
+![alt text](image03.png)
+
 ## Configuration
 
 src/app.py
@@ -25,6 +30,7 @@ poetry run python ./src/app.py
 
 ### with docker-compose
 ```bash
+docker compose build
 docker compose up -d
 ```
 ### with traefik

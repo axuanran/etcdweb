@@ -3,18 +3,92 @@
 <head>
     <title>批量操作ETCD</title>
     <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        textarea { width: 100%; min-height: 200px; margin: 10px 0; }
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 1200px; margin: 0 auto; }
+        textarea { width: 100%; min-height: 200px; margin: 10px 0; font-family: monospace; }
         #result { margin-top: 20px; padding: 10px; background-color: #f0f0f0; }
+        .tool-section { margin-top: 30px; border-top: 1px solid #ccc; padding-top: 20px; }
+        pre { white-space: pre-wrap; background-color: #f5f5f5; padding: 10px; font-family: monospace; }
+        .button-group { margin: 10px 0; }
+        button { margin-right: 10px; padding: 8px 12px; cursor: pointer; }
+        .tabs { display: flex; border-bottom: 1px solid #ccc; margin-bottom: 10px; }
+        .tab { padding: 8px 15px; cursor: pointer; background: #eee; border: 1px solid #ccc; border-bottom: none; margin-right: 5px; }
+        .tab.active { background: white; border-bottom: 1px solid white; margin-bottom: -1px; }
+        h3 { margin-top: 0; color: #333; }
     </style>
 </head>
 <body>
-    <h1>批量添加/编辑ETCD键值对</h1>
+    <h1>批量操作ETCD</h1>
     <textarea id="kvPairs" placeholder="输入键值对（每行一个，格式：key = value）"></textarea>
     <button onclick="submitKVPairs()">提交</button>
     <div id="result"></div>
 
+    <!-- 格式转换工具 -->
+    <div class="tool-section">
+        <h2>配置格式转换工具</h2>
+
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('notationTab', this)">键值表示法转换</div>
+            <div class="tab" onclick="switchTab('yamlTab', this)">YAML转换</div>
+        </div>
+
+        <!-- 键值表示法转换工具 -->
+        <div id="notationTab" class="tab-content">
+            <h3>键值表示法转换</h3>
+            <textarea id="dotNotationInput" placeholder="输入点表示法格式 (例如: traefik.http.middlewares.test-redirectscheme.redirectscheme.permanent=true)
+或Docker标签表示法 (例如: - 'traefik.http.middlewares.test-redirectscheme.redirectscheme.permanent=true')"></textarea>
+            <div class="button-group">
+                <button onclick="convertNotation('dot-to-path')">点表示法 → 路径表示法</button>
+                <button onclick="convertNotation('docker-to-path')">Docker标签 → 路径表示法</button>
+                <button onclick="convertNotation('path-to-dot')">路径表示法 → 点表示法</button>
+                <button onclick="convertNotation('docker-to-dot')">Docker标签 → 点表示法</button>
+                <button onclick="copyToClipboard('notationResult')">复制结果</button>
+                <button onclick="moveToMainInput('notationResult')">移至主输入框</button>
+            </div>
+            <pre id="notationResult"></pre>
+        </div>
+
+        <!-- YAML转换工具 -->
+        <div id="yamlTab" class="tab-content" style="display: none;">
+            <h3>YAML转换工具</h3>
+            <textarea id="yamlInput" placeholder="输入YAML格式 (例如:
+# Redirect to https
+http:
+  middlewares:
+    test-redirectscheme:
+      redirectScheme:
+        scheme: https
+        permanent: true
+)"></textarea>
+            <div class="button-group">
+                <button onclick="convertYamlTo('dot')">转换为点表示法</button>
+                <button onclick="convertYamlTo('path')">转换为路径表示法</button>
+                <button onclick="convertYamlTo('docker')">转换为Docker标签</button>
+                <button onclick="copyToClipboard('yamlResult')">复制结果</button>
+                <button onclick="moveToMainInput('yamlResult')">移至主输入框</button>
+            </div>
+            <pre id="yamlResult"></pre>
+        </div>
+    </div>
+
     <script>
+        function switchTab(tabId, tabElement) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.style.display = 'none';
+            });
+
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Show selected tab content
+            document.getElementById(tabId).style.display = 'block';
+
+            // Add active class to selected tab
+            tabElement.classList.add('active');
+        }
+
         async function submitKVPairs() {
             const textarea = document.getElementById('kvPairs');
             const kvPairs = textarea.value.trim().split('\n');
@@ -45,6 +119,105 @@
             } catch (error) {
                 document.getElementById('result').textContent = `错误：${error}`;
             }
+        }
+
+        function convertNotation(conversionType) {
+            const input = document.getElementById('dotNotationInput').value.trim();
+            const lines = input.split('\n');
+            const convertedLines = [];
+
+            for (const line of lines) {
+                let processedLine = line.trim();
+                let keyValue = processedLine;
+
+                // 处理Docker标签格式
+                if (conversionType.startsWith('docker-') && (processedLine.startsWith('- "') || processedLine.startsWith("- '") || processedLine.startsWith('-'))) {
+                    // 提取Docker标签中的键值对
+                    keyValue = processedLine.replace(/^- ['"]?|['"]?$/g, '').trim();
+                }
+
+                if (keyValue.includes('=')) {
+                    let [key, value] = keyValue.split('=').map(part => part.trim());
+
+                    if (conversionType === 'dot-to-path' || conversionType === 'docker-to-path') {
+                        // 将点表示法转换为路径表示法
+                        key = key.replace(/\./g, '/');
+                        convertedLines.push(`${key} = ${value}`);
+                    } else if (conversionType === 'path-to-dot' || conversionType === 'docker-to-dot') {
+                        // 将路径表示法转换为点表示法
+                        key = key.replace(/\//g, '.');
+                        convertedLines.push(`${key} = ${value}`);
+                    }
+                } else {
+                    // 保留不符合格式的行
+                    convertedLines.push(processedLine);
+                }
+            }
+
+            document.getElementById('notationResult').textContent = convertedLines.join('\n');
+        }
+
+        function convertYamlTo(format) {
+            const yamlText = document.getElementById('yamlInput').value.trim();
+            const lines = yamlText.split('\n');
+            const result = [];
+            const keyStack = [];
+            let prefix = 'traefik'; // 添加默认前缀
+
+            // 处理每一行
+            for (let line of lines) {
+                // 跳过注释行
+                if (line.trim().startsWith('#')) continue;
+
+                // 计算缩进级别
+                const indent = line.search(/\S|$/);
+                const level = Math.floor(indent / 2);
+
+                // 根据缩进调整键栈
+                while (keyStack.length > level) {
+                    keyStack.pop();
+                }
+
+                // 解析键值对
+                const trimmedLine = line.trim();
+                if (trimmedLine.includes(':')) {
+                    const [key, value] = trimmedLine.split(':').map(part => part.trim());
+
+                    // 将键添加到栈中
+                    keyStack[level] = key;
+
+                    // 如果有值，生成键值对
+                    if (value && value !== '') {
+                        const fullKey = [prefix, ...keyStack.slice(0, level + 1)];
+                        if (format === 'dot') {
+                            result.push(`${fullKey.join('.')} = ${value}`);
+                        } else if (format === 'path') {
+                            result.push(`${fullKey.join('/')} = ${value}`);
+                        } else if (format === 'docker') {
+                            result.push(`- "${fullKey.join('.')}"="${value}"`);
+                        }
+                    }
+                }
+            }
+
+            document.getElementById('yamlResult').textContent = result.join('\n');
+        }
+
+        function copyToClipboard(elementId) {
+            const text = document.getElementById(elementId).textContent;
+            navigator.clipboard.writeText(text)
+                .then(() => {
+                    alert('已复制到剪贴板');
+                })
+                .catch(err => {
+                    console.error('复制失败:', err);
+                    alert('复制失败，请手动复制');
+                });
+        }
+
+        function moveToMainInput(elementId) {
+            const text = document.getElementById(elementId).textContent;
+            document.getElementById('kvPairs').value = text;
         }
     </script>
 </body>
